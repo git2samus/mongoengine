@@ -1,6 +1,7 @@
 import pymongo
 from pymongo import MongoClient, MongoReplicaSetClient, uri_parser
 
+from mongoengine.reconnect_proxy import ReconnectProxy
 
 __all__ = ['ConnectionError', 'connect', 'register_connection',
            'DEFAULT_CONNECTION_NAME']
@@ -83,7 +84,7 @@ def disconnect(alias=DEFAULT_CONNECTION_NAME):
         del _dbs[alias]
 
 
-def get_connection(alias=DEFAULT_CONNECTION_NAME, reconnect=False):
+def get_connection(alias=DEFAULT_CONNECTION_NAME, reconnect=False, autoreconnect=False):
     global _connections
     # Connect to the database if not already connected
     if reconnect:
@@ -123,7 +124,10 @@ def get_connection(alias=DEFAULT_CONNECTION_NAME, reconnect=False):
             connection_class = MongoReplicaSetClient
 
         try:
-            _connections[alias] = connection_class(**conn_settings)
+            if autoreconnect:
+                _connections[alias] = ReconnectProxy(connection_class(**conn_settings))
+            else:
+                _connections[alias] = connection_class(**conn_settings)
         except Exception, e:
             raise ConnectionError("Cannot connect to database %s :\n%s" % (alias, e))
     return _connections[alias]
